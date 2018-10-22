@@ -811,6 +811,80 @@ public class Getter
 	}
 	
 	/**
+	 * This method prepares the incremental module menu. This is when Security Shepherd is in "Game Mode".
+	 * Users are presented with one uncompleted module at a time. This method does not return the JS script describing how the menu used should work
+	 * @param ApplicationRoot The running context of the application.
+	 * @param userId The user identifier of the user.
+	 * @param csrfToken The cross site request forgery token
+	 * @return A HTML menu of a users current module progress and a script for interaction with this menu
+	 */
+	public static JSONArray getIncrementalModulesJson (String userId, Locale locale)
+	{
+		log.debug("*** Getter.getIncrementalModulesJson ***");
+		Connection conn = Database.getCoreConnection("");
+		
+		Locale.setDefault(new Locale("en"));
+		ResourceBundle bundle = ResourceBundle.getBundle("i18n.text", locale);
+		ResourceBundle levelNames = ResourceBundle.getBundle("i18n.moduleGenerics.moduleNames", locale);
+		JSONArray jsonOutput = new JSONArray();
+		JSONObject jsonSection = new JSONObject();
+		JSONArray jsonSectionModules = new JSONArray();
+		JSONObject jsonObject = new JSONObject();
+		
+		try
+		{
+			CallableStatement callstmt = conn.prepareCall("call moduleIncrementalInfo(?)");
+			callstmt.setString(1, userId);
+			log.debug("Gathering moduleIncrementalInfo ResultSet");
+			ResultSet modules = callstmt.executeQuery();
+			log.debug("Opening Result Set from moduleIncrementalInfo");
+			boolean lastRow = false;
+			boolean completedModules = false;
+			
+			
+			log.debug("Preparing first Section \"Completed\"");
+			jsonSection.put("levelMode", "ctf");
+			while(modules.next() && !lastRow)
+			{
+				jsonObject = new JSONObject();
+				//For each row, prepair the modules the users can select
+				if(modules.getString(4) != null) //If not Last Row
+				{
+					log.debug("Not Last Row");
+					jsonObject.put("moduleCompleted", true);
+					jsonObject.put("moduleId", modules.getString(3));
+					jsonObject.put("moduleName", levelNames.getString(modules.getString(1)));
+					jsonSectionModules.add(jsonObject);
+				}
+				else
+				{
+					log.debug("Last Row");
+					lastRow = true;
+					jsonSection.put("done", jsonSectionModules);
+					jsonOutput.add(jsonSection);
+					jsonObject = new JSONObject();
+					jsonSectionModules = new JSONArray();
+					jsonSection = new JSONObject();
+					log.debug("Preparing second Section \"Next Challenge\"");
+					jsonObject.put("moduleCompleted", false);
+					jsonObject.put("moduleId", modules.getString(3));
+					jsonObject.put("moduleName", levelNames.getString(modules.getString(1)));
+					jsonSectionModules.add(jsonObject);
+					jsonSection.put("next", jsonSectionModules);
+					jsonOutput.add(jsonSection);				
+				}
+			}
+		}
+		catch(Exception e)
+		{
+			log.error("Challenge Retrieval: " + e.toString());
+		}
+		Database.closeConnection(conn);
+		log.debug("*** END getIncrementalModulesJson() ***");
+		return jsonOutput;
+	}
+	
+	/**
 	 * Use to return the current progress of a class in JSON format with information like userid, user name and score
 	 * @param applicationRoot The current running context of the application
 	 * @param classId The identifier of the class to use in lookup
@@ -1769,6 +1843,61 @@ public class Getter
 		}
 		Database.closeConnection(conn);
 		return levelMasterList;
+	}
+	
+	/**
+	 * Return all modules in JSON for specific User
+	 * @param ApplicationRoot
+	 * @param userId
+	 * @param lang
+	 * @return
+	 */
+	public static JSONArray getModulesJson (String userId, String floor, Locale locale)
+	{
+		log.debug("*** Getter.getModulesJson ***");
+		JSONArray jsonOutput = new JSONArray();
+		String levelMasterList = new String();
+		Connection conn = Database.getCoreConnection();
+		//Getting Translations
+		ResourceBundle bundle = ResourceBundle.getBundle("i18n.text", locale);
+		ResourceBundle levelNames = ResourceBundle.getBundle("i18n.moduleGenerics.moduleNames", locale);
+		try
+		{
+			JSONObject jsonSection = new JSONObject();
+			JSONArray jsonSectionModules = new JSONArray();
+			JSONObject jsonObject = new JSONObject();
+			jsonSection.put("levelMode", floor);
+			jsonOutput.add(jsonSection);
+			jsonSection = new JSONObject();
+
+			//Get the modules
+			CallableStatement callstmt = conn.prepareCall("call getMyModules(?)");
+			callstmt.setString(1, userId);
+			log.debug("Gathering getMyModules ResultSet for user " + userId);
+			ResultSet levels = callstmt.executeQuery();
+			while(levels.next())
+			{
+				jsonObject = new JSONObject();
+				boolean moduleCompleted = levels.getString(4) != null;
+				jsonObject.put("moduleCompleted", moduleCompleted);
+				jsonObject.put("moduleId", levels.getString(3));
+				jsonObject.put("moduleType", levels.getString(5));
+				jsonObject.put("moduleName", levelNames.getString(levels.getString(1)));
+				jsonObject.put("moduleCategory", levelNames.getString("category."+levels.getString(2)));
+				jsonObject.put("difficultyCategory", getTounnamentSectionFromRankNumber(levels.getInt(7)));
+				jsonObject.put("moduleScore", levels.getString(6));
+				jsonObject.put("moduleRank", levels.getInt(7));
+				jsonSectionModules.add(jsonObject);
+			}
+			jsonSection.put("modules", jsonSectionModules);
+			jsonOutput.add(jsonSection);
+		}
+		catch(Exception e)
+		{
+			log.error("Module List Retrieval: " + e.toString());
+		}
+		Database.closeConnection(conn);
+		return jsonOutput;
 	}
 	/**
 	 * @param ApplicationRoot The current running context of the application

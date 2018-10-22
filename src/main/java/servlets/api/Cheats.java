@@ -30,7 +30,7 @@ public class Cheats extends HttpServlet
 		if(CheatSheetStatus.showCheat((String)ses.getAttribute("userRole"))){
 			out.write("true");
 		} else {
-			// Return 400
+			// Return 403
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 		}
 	}

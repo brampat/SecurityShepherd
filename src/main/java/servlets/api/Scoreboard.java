@@ -29,7 +29,7 @@ public class Scoreboard extends HttpServlet
 		if(ScoreboardStatus.canSeeScoreboard((String)ses.getAttribute("userRole"))){
 			out.write("true");
 		} else {
-			// Return 400
+			// Return 403
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 		}
 	}

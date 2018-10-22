@@ -702,6 +702,23 @@ END
 -- $$
 -- DELIMITER ;
 ;
+
+-- -----------------------------------------------------
+-- procedure getMyModules
+-- -----------------------------------------------------
+
+USE `core`;
+-- DELIMITER $$
+CREATE PROCEDURE `core`.`getMyModules` (IN theUserId VARCHAR(64))
+BEGIN
+(SELECT moduleNameLangPointer, moduleCategoryLangPointer, moduleId, finishTime, moduleType, scoreValue, incrementalRank 
+FROM modules LEFT JOIN results USING (moduleId) WHERE userId = theUserId AND moduleStatus = 'open') UNION (SELECT moduleNameLangPointer, moduleCategoryLangPointer, moduleId, null, moduleType, scoreValue, incrementalRank FROM modules WHERE moduleId NOT IN (SELECT moduleId FROM modules JOIN results USING (moduleId) WHERE userId = theUserId AND moduleStatus = 'open')  AND moduleStatus = 'open') ORDER BY moduleCategoryLangPointer, moduleNameLangPointer;
+END
+
+-- $$
+-- DELIMITER ;
+;
+
 -- -----------------------------------------------------
 -- procedure moduleAllInfo
 -- -----------------------------------------------------
